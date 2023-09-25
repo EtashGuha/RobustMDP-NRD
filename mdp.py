@@ -1,14 +1,16 @@
 import gym
 from gym import spaces
 import numpy as np
+from tqdm import tqdm
 
 class SmallGridworld(gym.Env):
     def __init__(self, transition_matrix):
         # Define the gridworld dimensions
-        self.grid_size = 3
+        self.grid_size = int(np.sqrt(len(transition_matrix)))
+        self.num_actions = transition_matrix.shape[1]
 
         # Set up the action space and observation space
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(self.num_actions)
         self.observation_space = spaces.Discrete(self.grid_size ** 2)
 
         # Define the possible actions
@@ -18,13 +20,14 @@ class SmallGridworld(gym.Env):
             2: 'down',
             3: 'left'
         }
+        self.prev_value_function = None
 
         # Store the transition matrix
         self.transition_matrix = transition_matrix
 
         # Define the gridworld layout and rewards
         self.grid = np.zeros((self.grid_size, self.grid_size))
-        self.goal_pos = (2, 2)
+        self.goal_pos = (self.grid_size - 1, self.grid_size -1)
         self.goal_reward = 10
         self.step_reward = -1
 
@@ -33,6 +36,7 @@ class SmallGridworld(gym.Env):
 
     def reset(self):
         # Reset the environment to the initial state
+        self.prev_value_function = None
         self.current_state = (0, 0)
         return self._state_to_observation(self.current_state)
 
@@ -75,28 +79,38 @@ class SmallGridworld(gym.Env):
         grid[y, x] = 1
         print(grid)
 
-    def calculate_initial_state_value(self, policy, gamma=0.9, tol=1e-6, max_iter=1000):
+    def calculate_initial_state_value(self, policy, gamma=0.9, tol=1e-2, max_iter=1000): 
         num_states, num_actions = self.transition_matrix.shape[0], self.transition_matrix.shape[1]
-        value_function = np.zeros(num_states)
-
+        if self.prev_value_function is None:
+            value_function = np.zeros(num_states)
+        else:
+            value_function = self.prev_value_function
+        
         initial_state_observation = self._state_to_observation(self.current_state)
         
-        for i in range(max_iter):
+        for i in range(200):
+            
             prev_value_function = np.copy(value_function)
 
             for state in range(num_states):
                 next_state_values = np.zeros(num_actions)
                 for action in range(num_actions):
+                
                     for next_state in range(num_states):
                         prob = self.transition_matrix[state, action, next_state] * policy[state, action]
-                        reward = self._get_reward(next_state)
-                        next_state_values[action] += prob * (reward + gamma * value_function[next_state])
-
-                value_function[initial_state_observation] = self._get_reward(state) + gamma * np.dot(policy[state], next_state_values)
-
-            if np.abs(value_function[initial_state_observation] - prev_value_function[initial_state_observation]) < tol:
+                        next_state_values[action] += prob * value_function[next_state]
+                if self._is_terminal(state):
+                    value_function[state] = self._get_reward(state)
+                else:
+                    if self._get_reward(state) + gamma * np.sum(next_state_values) >= np.max(value_function):
+                        breakpoint()
+                    value_function[state] = self._get_reward(state) + gamma * np.sum(next_state_values)
+                    
+            if np.linalg.norm((value_function - prev_value_function)) < tol:
                 break
-            
+            self.prev_value_function = value_function
+        if i == 19:
+            print("not Converged: {}".format(np.linalg.norm((value_function - prev_value_function))))
         return value_function[initial_state_observation]
 
         
@@ -122,7 +136,7 @@ if __name__ == '__main__':
     num_actions = 4
 
     # Generate a random transition matrix with stochastic transitions
-    np.random.seed(42)
+    # np.random.seed(42) 
     transition_matrix = generate_valid_transition_matrix(num_states, num_actions, num_states)
 
     env = SmallGridworld(transition_matrix)
