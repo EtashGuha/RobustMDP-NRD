@@ -8,8 +8,6 @@ def softmax(x):
 
 def policy_objective_function(policy, env):
     gah = softmax(policy)
-    if (gah < 0).any():
-        breakpoint()
     return -env.calculate_initial_state_value(gah)
 
 def transition_objective_function(transition, policy, env):

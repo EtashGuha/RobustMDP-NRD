@@ -102,15 +102,11 @@ class SmallGridworld(gym.Env):
                 if self._is_terminal(state):
                     value_function[state] = self._get_reward(state)
                 else:
-                    if self._get_reward(state) + gamma * np.sum(next_state_values) >= np.max(value_function):
-                        breakpoint()
                     value_function[state] = self._get_reward(state) + gamma * np.sum(next_state_values)
                     
             if np.linalg.norm((value_function - prev_value_function)) < tol:
                 break
             self.prev_value_function = value_function
-        if i == 19:
-            print("not Converged: {}".format(np.linalg.norm((value_function - prev_value_function))))
         return value_function[initial_state_observation]
 
         

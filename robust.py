@@ -14,7 +14,7 @@ def oftpl_exp(args):
 
     policy = generate_random_policy(num_states, num_actions)
     transition_matrix, obj_val = find_best_response_transition(args, env, policy, initial_transition=transition_matrix)
-    T = 60
+    T = 40
     transitions = []
     transitions.append(transition_matrix)
     vals = []
